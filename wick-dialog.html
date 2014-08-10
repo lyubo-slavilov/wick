@@ -1,0 +1,236 @@
+<link rel="import"	href="../core-overlay/core-overlay.html">
+<link rel="import" href="../core-ajax/core-ajax.html">
+<polymer-element name="wick-dialog" attributes="heading closeOnAccept closeOnDismiss collectSelector">
+<template>
+<style>
+#overlay {
+	background: white;
+	box-shadow: 0 7px 10px rgba(0, 0, 0, .3)
+}
+
+[heading] {
+	padding: 20px 20px 10px 20px;
+	margin: 0;
+	background: rgb(252, 252, 252);
+	border-top: 1px solid white;
+	text-shadow: 0 1px white;
+	border-bottom: 1px solid silver;
+}
+
+.content {
+	padding: 20px;
+}
+
+.actions {
+	margin: 10px 20px;
+}
+</style>
+
+<core-ajax 
+    id="ajax" 
+    url="{{url}}" 
+    auto="false" 
+    method="post"
+	on-core-response={{handleAjaxResponse}} 
+    handleAs="json"
+></core-ajax> 
+<core-overlay
+	layout vertical 
+    id="overlay" 
+    backdrop={{backdrop}}
+	autoCloseDisabled?="{{modal}}" 
+    opened?="{{opened}}"
+> 
+    <template	if="{{heading}}">
+        <h1 heading light>{{heading}}</h1>
+    </template>
+    <div class="content">
+    	<content select="[content]"></content>
+    </div>
+    <div class="actions" layout horizontal end-justified>
+    	<content select="[button]"></content>
+    </div>
+</core-overlay> 
+</template>
+<script>
+    (function() {
+        
+        ajaxCallback = function(){};
+        
+        Polymer('wick-dialog', {
+
+            publish : {
+                backdrop : {
+                    value : false,
+                    reflect : true
+                },
+
+                opened : {
+                    value : false,
+                    reflect : true
+                },
+                modal : false,
+                url : {
+                    value : '',
+                    reflect : true
+                },
+
+                autoAjax : {
+                    value : false,
+                    reflect : true
+                }
+            },
+
+            closeOnAccept : true,
+
+            closeOnDismiss : true,
+
+            collectSelector : '',
+
+            defaultCollectablePropery : 'value',
+
+            defaultVisualbleProperty : 'innerText',
+
+            _registerListeners : function() {
+                var host = this;
+
+                //buttons
+                var buttons = this.querySelectorAll('[button]');
+                for ( var i = 0; i < buttons.length; i++) {
+                    var button = buttons[i];
+                    button.addEventListener('click', function(e) {
+                        if (this.disabled) {
+                            return;
+                        }
+
+                        if (this.hasAttribute('accept')) {
+                            var e = host.fire('wick-dialog-accept', {
+                                collection : host._collect()
+                            });
+
+                            if (host.autoAjax) {
+                                host.$.ajax.params = e.detail.collection;
+                                host.$.ajax.go();
+                            } else {
+                                if (host.closeOnAccept) {
+                                    host.close();
+                                }
+                            }
+                        } else if (this.hasAttribute('dismiss')) {
+                            host.fire('wick-dialog-dismiss')
+                            if (host.closeOnDismiss) {
+                                host.close();
+                            }
+                        }
+                    });
+                }
+
+            },
+
+            _collect : function() {
+                var collection = {};
+                if (!this.collectSelector) {
+                    return collection;
+                }
+
+                var elements = this.querySelectorAll(this.collectSelector);
+
+                for ( var i = 0; i < elements.length; i++) {
+                    var el = elements[i];
+                    var collectableProperty = el.getAttribute('collectable');
+
+                    if (!collectableProperty) {
+                        collectableProperty = this.defaultCollectablePropery;
+                    }
+
+                    var key = el.id ? el.id : i;
+                    collection[key] = el[collectableProperty];
+                }
+
+                return collection;
+
+            },
+
+            _callAjax : function() {
+
+            },
+
+            handleAjaxResponse : function(e) {
+                this.fire('wick-dialog-response')
+                ajaxCallback(e);
+                if (this.closeOnAccept) {
+                    this.close();
+                }
+            },
+
+            ready : function() {
+                this._registerListeners();
+            },
+
+            open : function(callback) {
+                
+                if (typeof callback == 'function') {
+                    ajaxCallback = callback;
+                }
+                
+                this.fire('wick-dialog-init', {
+                    dialog : this
+                });
+                this.$.overlay.opened = true;
+                this.fire('wick-dialog-open', {
+                    dialog : this
+                });
+            },
+
+            close : function() {
+                this.$.overlay.opened = false;
+            },
+
+            reset : function(params) {
+
+                if (!this.collectSelector) {
+                    return collection;
+                }
+
+                var elements = this.querySelectorAll(this.collectSelector);
+
+                for ( var i = 0; i < elements.length; i++) {
+                    var el = elements[i];
+                    var collectableProperty = el.getAttribute('collectable');
+
+                    if (!collectableProperty) {
+                        collectableProperty = this.defaultCollectablePropery;
+                    }
+
+                    var id = el.id;
+                    if (params.hasOwnProperty('*')) {
+                        el[collectableProperty] = params['*'];
+                    }
+                    if (params.hasOwnProperty(id)) {
+                        el[collectableProperty] = params[id]
+                    }
+                }
+
+                elements = this.querySelectorAll('[info]');
+
+                for ( var i = 0; i < elements.length; i++) {
+                    var el = elements[i];
+                    var prop = el.getAttribute('bindTo');
+
+                    if (!prop) {
+                        prop = 'innerText';
+                    }
+
+                    var id = el.id;
+                    if (params.hasOwnProperty('*')) {
+                        el[prop] = params['*'];
+                    }
+                    if (params.hasOwnProperty(id)) {
+                        el[prop] = params[id]
+                    }
+                }
+
+            }
+        });
+    })()
+</script> </polymer-element>
